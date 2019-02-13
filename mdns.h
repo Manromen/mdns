@@ -96,10 +96,10 @@ struct mdns_record_txt_t {
 };
 
 static int
-mdns_socket_open_ipv4(void);
+mdns_socket_open_ipv4(in_addr_t *if_addr);
 
 static int
-mdns_socket_setup_ipv4(int sock);
+mdns_socket_setup_ipv4(int sock, in_addr_t *if_addr);
 
 static int
 mdns_socket_open_ipv6(void);
@@ -162,11 +162,11 @@ mdns_record_parse_txt(const void* buffer, size_t size, size_t offset, size_t len
 // Implementations
 
 static int
-mdns_socket_open_ipv4(void) {
+mdns_socket_open_ipv4(in_addr_t *if_addr) {
 	int sock = (int)socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock < 0)
 		return -1;
-	if (mdns_socket_setup_ipv4(sock)) {
+	if (mdns_socket_setup_ipv4(sock, if_addr)) {
 		mdns_socket_close(sock);
 		return -1;
 	}
@@ -174,11 +174,12 @@ mdns_socket_open_ipv4(void) {
 }
 
 static int
-mdns_socket_setup_ipv4(int sock) {
+mdns_socket_setup_ipv4(int sock, in_addr_t *if_addr) {
 	struct sockaddr_in saddr;
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
-	saddr.sin_addr.s_addr = INADDR_ANY;
+	saddr.sin_addr.s_addr = *if_addr;
+
 #ifdef __APPLE__
 	saddr.sin_len = sizeof(saddr);
 #endif

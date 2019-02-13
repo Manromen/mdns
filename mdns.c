@@ -7,6 +7,8 @@
 
 #include <stdio.h>
 #include <errno.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
 
 #ifdef _WIN32
 #  define sleep(x) Sleep(x * 1000)
@@ -129,7 +131,7 @@ callback(const struct sockaddr* from,
 }
 
 int
-main() {
+dns_sd_discovery(in_addr_t *if_addr) {
 	size_t capacity = 2048;
 	void* buffer = 0;
 	size_t records;
@@ -140,7 +142,8 @@ main() {
 	WSAStartup(versionWanted, &wsaData);
 #endif
 
-	int sock = mdns_socket_open_ipv4();
+
+	int sock = mdns_socket_open_ipv4(if_addr);
 	if (sock < 0) {
 		printf("Failed to open socket: %s\n", strerror(errno));
 		return -1;
@@ -162,8 +165,8 @@ main() {
 
 	printf("Sending mDNS query\n");
 	if (mdns_query_send(sock, MDNS_RECORDTYPE_PTR,
-	                    MDNS_STRING_CONST("_ssh._tcp.local."),
-	                    buffer, capacity)) {
+						MDNS_STRING_CONST("_http._tcp.local."),
+						buffer, capacity)) {
 		printf("Failed to send mDNS query: %s\n", strerror(errno));
 		goto quit;
 	}
@@ -174,7 +177,7 @@ main() {
 		sleep(1);
 	}
 
-quit:
+	quit:
 	free(buffer);
 
 	mdns_socket_close(sock);
@@ -183,6 +186,25 @@ quit:
 #ifdef _WIN32
 	WSACleanup();
 #endif
+
+}
+
+int
+main() {
+	struct ifaddrs *addrs = malloc(sizeof(struct ifaddrs));
+	int foo = getifaddrs(&addrs);
+
+	struct ifaddrs *next = addrs;
+	char *address;
+	while (next != NULL) {
+		if (next->ifa_addr->sa_family == AF_INET) {
+			struct sockaddr_in* sa = next->ifa_addr;
+			address = inet_ntoa(sa->sin_addr);
+			printf("\nChecking interface %s (%s)\n", next->ifa_name, address);
+			dns_sd_discovery((in_addr_t *)&sa->sin_addr);
+		}
+		next = next->ifa_next;
+	}
 
 	return 0;
 }
