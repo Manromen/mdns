@@ -25,10 +25,12 @@ public:
      * Constructs an mDNS request performer. Use create() instead.
      * @param addrs addresses obtained by getifaddrs
      */
-    explicit MDNSRequestPerformer(ifaddrs* const addrs);
+    explicit MDNSRequestPerformer(ifaddrs* addrs);
     virtual ~MDNSRequestPerformer();
 
     std::vector<in_addr> listIPv4Addresses();
+    void performRequestForInterface(in_addr interfaceAddress);
+    void performRequestsForAllInterfaces();
 
 private:
     ifaddrs* addrs;

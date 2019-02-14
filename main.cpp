@@ -213,21 +213,5 @@ main() {
         dnssd_and_mdns(address);
     }
 
-//    struct ifaddrs *addrs = (struct ifaddrs *)malloc(sizeof(struct ifaddrs));
-//    int foo = getifaddrs(&addrs);
-//
-//    struct ifaddrs *next = addrs;
-//    char *address;
-//    while (next != NULL) {
-//        if (next->ifa_addr->sa_family == AF_INET) {
-//            struct sockaddr_in *sa = (struct sockaddr_in *)next->ifa_addr;
-//            address = inet_ntoa(sa->sin_addr);
-//            printf("\nChecking interface %s (%s)\n", next->ifa_name, address);
-//            dnssd_and_mdns(sa->sin_addr.s_addr);
-//        }
-//        next = next->ifa_next;
-//    }
-//    freeifaddrs(addrs);
-
     return 0;
 }
