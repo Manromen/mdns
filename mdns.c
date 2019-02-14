@@ -73,7 +73,7 @@ mdns_record_parse_aaaa(const void* buffer, size_t size, size_t offset, size_t le
 }
 
 int
-mdns_socket_open_ipv4(in_addr_t *if_addr) {
+mdns_socket_open_ipv4(struct in_addr if_addr) {
 	int sock = (int)socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock < 0)
 		return -1;
@@ -85,11 +85,11 @@ mdns_socket_open_ipv4(in_addr_t *if_addr) {
 }
 
 int
-mdns_socket_setup_ipv4(int sock, in_addr_t *if_addr) {
+mdns_socket_setup_ipv4(int sock, struct in_addr if_addr) {
 	struct sockaddr_in saddr;
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
-	saddr.sin_addr.s_addr = *if_addr;
+	saddr.sin_addr = if_addr;
 
 #ifdef __APPLE__
 	saddr.sin_len = sizeof(saddr);
@@ -123,7 +123,7 @@ mdns_socket_setup_ipv4(int sock, in_addr_t *if_addr) {
 }
 
 int
-mdns_socket_open_ipv6(in6_addr_t *if_addr) {
+mdns_socket_open_ipv6(struct in6_addr if_addr) {
 	int sock = (int)socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock < 0)
 		return -1;
@@ -135,12 +135,12 @@ mdns_socket_open_ipv6(in6_addr_t *if_addr) {
 }
 
 int
-mdns_socket_setup_ipv6(int sock, in6_addr_t *if_addr) {
+mdns_socket_setup_ipv6(int sock, struct in6_addr if_addr) {
 	struct sockaddr_in6 saddr;
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin6_family = AF_INET6;
 //	saddr.sin6_addr = in6addr_any;
-	saddr.sin6_addr = *if_addr;
+	saddr.sin6_addr = if_addr;
 #ifdef __APPLE__
 	saddr.sin6_len = sizeof(saddr);
 #endif

@@ -108,16 +108,16 @@ mdns_record_parse_aaaa(const void* buffer, size_t size, size_t offset, size_t le
                        struct sockaddr_in6* addr);
 
 int
-mdns_socket_open_ipv4(in_addr_t *if_addr);
+mdns_socket_open_ipv4(struct in_addr if_addr);
 
 int
-mdns_socket_setup_ipv4(int sock, in_addr_t *if_addr);
+mdns_socket_setup_ipv4(int sock, struct in_addr if_addr);
 
 int
-mdns_socket_open_ipv6(in6_addr_t *if_addr);
+mdns_socket_open_ipv6(struct in6_addr if_addr);
 
 int
-mdns_socket_setup_ipv6(int sock, in6_addr_t *if_addr);
+mdns_socket_setup_ipv6(int sock, struct in6_addr if_addr);
 
 void
 mdns_socket_close(int sock);
