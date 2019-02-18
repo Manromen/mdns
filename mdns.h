@@ -80,7 +80,7 @@ typedef struct mdns_records_t      mdns_records_t;
 typedef struct mdns_reply_t        mdns_reply_t;
 
 struct mdns_string_t {
-	const char* str;
+	char* str;
 	size_t length;
 };
 
@@ -154,6 +154,24 @@ mdns_string_skip(const void* buffer, size_t size, size_t* offset);
 int
 mdns_string_equal(const void* buffer_lhs, size_t size_lhs, size_t* ofs_lhs,
                   const void* buffer_rhs, size_t size_rhs, size_t* ofs_rhs);
+
+void
+mdns_string_alloc(mdns_string_t* str, const char* content, size_t length);
+
+void
+mdns_string_free(mdns_string_t* str);
+
+void
+mdns_record_srv_free(mdns_record_srv_t* record_srv);
+
+void
+mdns_record_txt_free(mdns_record_txt_t* record_txt);
+
+void
+mdns_records_free(mdns_records_t* records);
+
+void
+mdns_reply_free(mdns_reply_t* reply);
 
 mdns_string_t
 mdns_string_extract(const void* buffer, size_t size, size_t* offset,

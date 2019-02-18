@@ -275,19 +275,88 @@ mdns_string_equal(const void* buffer_lhs, size_t size_lhs, size_t* ofs_lhs,
 	return 1;
 }
 
+void
+mdns_string_alloc(mdns_string_t* str, const char* content, size_t length) {
+	str->str = malloc((length + 1) * sizeof(char));
+	strncpy(str->str, content, length);
+	str->str[length] = '\0';
+	str->length = length;
+}
+
+void
+mdns_string_free(mdns_string_t* str) {
+	free(str->str);
+}
+
+void
+mdns_record_srv_free(mdns_record_srv_t* record_srv) {
+	mdns_string_free(&record_srv->name);
+}
+
+void
+mdns_record_txt_free(mdns_record_txt_t* record_txt) {
+	mdns_string_free(&record_txt->key);
+	mdns_string_free(&record_txt->value);
+}
+
+void
+mdns_records_free(mdns_records_t* records) {
+	mdns_records_t* current_record = records;
+	size_t size = 0;
+
+	while (current_record != NULL) {
+		switch (current_record->record_type) {
+			case MDNS_RECORDTYPE_AAAA:
+				mdns_string_free(&current_record->content.aaaa);
+				break;
+			case MDNS_RECORDTYPE_A:
+				mdns_string_free(&current_record->content.a);
+				break;
+			case MDNS_RECORDTYPE_PTR:
+				mdns_string_free(&current_record->content.ptr);
+				break;
+			case MDNS_RECORDTYPE_TXT:
+				mdns_record_txt_free(&current_record->content.txt);
+				break;
+			case MDNS_RECORDTYPE_SRV:
+				mdns_record_srv_free(&current_record->content.srv);
+				break;
+		}
+		current_record = current_record->next;
+		++size;
+	}
+
+	mdns_records_t** records_stack = malloc(size * sizeof(mdns_records_t*));
+	current_record = records;
+	for (size_t i = 0; i < size && current_record != NULL; ++i, current_record = current_record->next) {
+		records_stack[i] = current_record;
+	}
+	for (size_t i = size - 1; i >= 0; --i) {
+		records_stack[i]->next = NULL;
+		free(records_stack[i]);
+	}
+}
+
+void
+mdns_reply_free(mdns_reply_t* reply) {
+	mdns_records_free(reply->record);
+}
+
 mdns_string_t
 mdns_string_extract(const void* buffer, size_t size, size_t* offset,
                     char* str, size_t capacity) {
 	size_t cur = *offset;
 	size_t end = MDNS_INVALID_POS;
 	mdns_string_pair_t substr;
-	mdns_string_t result = {str, 0};
+	mdns_string_t result = {NULL, 0};
 	char* dst = str;
 	size_t remain = capacity;
 	do {
 		substr = mdns_get_next_substring(buffer, size, cur);
-		if (substr.offset == MDNS_INVALID_POS)
+		if (substr.offset == MDNS_INVALID_POS) {
+			result.str = NULL;
 			return result;
+		}
 		if (substr.ref && (end == MDNS_INVALID_POS))
 			end = cur + 2;
 		if (substr.length) {
@@ -308,7 +377,8 @@ mdns_string_extract(const void* buffer, size_t size, size_t* offset,
 		end = cur + 1;
 	*offset = end;
 
-	result.length = capacity - remain;
+	mdns_string_alloc(&result, str, capacity - remain);
+//	result.length = capacity - remain; // TODO: remove
 	return result;
 }
 
@@ -383,6 +453,75 @@ mdns_records_parse(const struct sockaddr* from, const void* buffer, size_t size,
 		}
 
 		*offset += length;
+	}
+	return parsed;
+}
+
+void
+init_current_record(mdns_records_t** current_record,
+		            uint16_t rtype,
+					uint16_t rclass,
+					uint32_t ttl,
+					size_t length) {
+	*current_record = malloc(sizeof(mdns_records_t));
+	(*current_record)->record_type = rtype;
+	(*current_record)->type = rtype;
+	(*current_record)->rclass = rclass;
+	(*current_record)->ttl = ttl;
+	(*current_record)->length = length;
+}
+
+void
+mdns_record_parse(mdns_records_t** records, const struct sockaddr* from, mdns_entry_type_t entry,
+				  uint16_t rtype, uint16_t rclass, uint32_t ttl, const void* data, size_t size,
+				  size_t offset, size_t length) {
+	if (rtype != MDNS_RECORDTYPE_TXT)
+		init_current_record(records, rtype, rclass, ttl, length);
+
+	switch (rtype) {
+		case MDNS_RECORDTYPE_PTR:
+//			(*records)->content.ptr = mdns_record_parse_ptr(data, size, offset, length, );
+			break;
+		case MDNS_RECORDTYPE_SRV:
+			break;
+		case MDNS_RECORDTYPE_A:
+			break;
+		case MDNS_RECORDTYPE_AAAA:
+			break;
+		case MDNS_RECORDTYPE_TXT:
+			break;
+		default:
+			(*records)->record_type = MDNS_RECORDTYPE_IGNORE;
+			break;
+	}
+}
+
+size_t
+mdns_records_parse_new(mdns_records_t** records, const struct sockaddr* from, const void* buffer,
+					   size_t size, size_t* offset, mdns_entry_type_t type, size_t num_records) {
+	size_t parsed = 0;
+
+	mdns_records_t** current_record = records;
+
+	for (size_t i = 0; i < num_records; ++i) {
+		mdns_string_skip(buffer, size, offset);
+		const uint16_t* data = (const uint16_t*)((const char*)buffer + (*offset));
+
+		uint16_t rtype = ntohs(*data++);
+		uint16_t rclass = ntohs(*data++);
+		uint32_t ttl = ntohs(*(const uint32_t*)(const void*)data); data += 2;
+		uint16_t length = ntohs(*data++);
+
+		*offset += 10;
+
+
+
+		//if (callback(from, type, rtype, rclass, ttl, buffer, size, *offset, length))
+
+		*offset += length;
+
+		++parsed;
+		current_record = &(*current_record)->next;
 	}
 	return parsed;
 }
@@ -632,7 +771,7 @@ mdns_record_parse_ptr(const void* buffer, size_t size, size_t offset, size_t len
 	//PTR record is just a string
 	if ((size >= offset + length) && (length >= 2))
 		return mdns_string_extract(buffer, size, &offset, strbuffer, capacity);
-	mdns_string_t empty = {0, 0};
+	mdns_string_t empty = {NULL, 0};
 	return empty;
 }
 
@@ -691,14 +830,15 @@ mdns_record_parse_txt(const void* buffer, size_t size, size_t offset, size_t len
 			continue;
 
 		if (separator < sublength) {
-			records[parsed].key.str = strdata;
-			records[parsed].key.length = separator;
-			records[parsed].value.str = strdata + separator + 1;
-			records[parsed].value.length = sublength - (separator + 1);
+			size_t key_length = separator;
+			mdns_string_alloc(&records[parsed].key, strdata, key_length);
+
+			size_t value_length = sublength - (separator + 1);
+			mdns_string_alloc(&records[parsed].value, strdata, value_length);
 		}
 		else {
-			records[parsed].key.str = strdata;
-			records[parsed].key.length = sublength;
+			size_t key_length = sublength;
+			mdns_string_alloc(&records[parsed].key, strdata, key_length);
 		}
 
 		++parsed;
@@ -745,14 +885,15 @@ mdns_record_parse_txt_new(const void* buffer, size_t size, size_t offset, size_t
         mdns_record_txt_t* txt_record = &(*current_record)->content.txt;
 
         if (separator < sublength) {
-			txt_record->key.str = strdata;
-			txt_record->key.length = separator;
-			txt_record->value.str = strdata + separator + 1;
-			txt_record->value.length = sublength - (separator + 1);
+			size_t key_length = separator;
+			mdns_string_alloc(&txt_record->key, strdata, key_length);
+
+			size_t value_length = sublength - (separator + 1);
+			mdns_string_alloc(&txt_record->value, strdata, value_length);
         }
         else {
-			txt_record->key.str = strdata;
-			txt_record->key.length = sublength;
+			size_t key_length = sublength;
+			mdns_string_alloc(&txt_record->key, strdata, key_length);
         }
 
         ++parsed;
