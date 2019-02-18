@@ -170,9 +170,9 @@ dnssd_and_mdns(in_addr if_addr) {
 
     printf("Reading DNS-SD replies\n");
     buffer = malloc(capacity);
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 10; ++i) {
         records = mdns_discovery_recv(sock, buffer, capacity, callback);
-//        sleep(1);
+        sleep(1);
     }
 
     printf("Sending mDNS query\n");

@@ -75,6 +75,9 @@ typedef struct mdns_string_t       mdns_string_t;
 typedef struct mdns_string_pair_t  mdns_string_pair_t;
 typedef struct mdns_record_srv_t   mdns_record_srv_t;
 typedef struct mdns_record_txt_t   mdns_record_txt_t;
+typedef union mdns_record_t        mdns_record_t;
+typedef struct mdns_records_t      mdns_records_t;
+typedef struct mdns_reply_t        mdns_reply_t;
 
 struct mdns_string_t {
 	const char* str;
@@ -97,6 +100,25 @@ struct mdns_record_srv_t {
 struct mdns_record_txt_t {
 	mdns_string_t key;
 	mdns_string_t value;
+};
+
+union mdns_record_t {
+    mdns_string_t a;
+    mdns_string_t aaaa;
+    mdns_string_t ptr;
+    mdns_record_txt_t txt;
+    mdns_record_srv_t srv;
+};
+
+struct mdns_records_t {
+    mdns_records_t *next;
+    mdns_record_type_t record_type;
+    mdns_record_t content;
+};
+
+struct mdns_reply_t {
+    mdns_entry_type_t entry_type;
+    mdns_records_t record;
 };
 
 struct sockaddr_in*

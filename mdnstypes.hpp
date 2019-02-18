@@ -43,7 +43,7 @@ struct PTRRecord : public Record
 
 struct TXTRecord : public Record
 {
-    
+
 };
 
 struct Reply
