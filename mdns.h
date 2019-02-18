@@ -111,14 +111,18 @@ union mdns_record_t {
 };
 
 struct mdns_records_t {
-    mdns_records_t *next;
+    mdns_records_t* next;
     mdns_record_type_t record_type;
     mdns_record_t content;
+    uint16_t type;
+    uint16_t rclass;
+    uint32_t ttl;
+    size_t length;
 };
 
 struct mdns_reply_t {
     mdns_entry_type_t entry_type;
-    mdns_records_t record;
+    mdns_records_t* record;
 };
 
 struct sockaddr_in*
@@ -184,3 +188,7 @@ mdns_record_parse_srv(const void* buffer, size_t size, size_t offset, size_t len
 size_t
 mdns_record_parse_txt(const void* buffer, size_t size, size_t offset, size_t length,
                       mdns_record_txt_t* records, size_t capacity);
+
+size_t
+mdns_record_parse_txt_new(const void* buffer, size_t size, size_t offset, size_t length,
+                          mdns_records_t** records, size_t capacity);

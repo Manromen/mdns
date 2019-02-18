@@ -707,6 +707,61 @@ mdns_record_parse_txt(const void* buffer, size_t size, size_t offset, size_t len
 	return parsed;
 }
 
+size_t
+mdns_record_parse_txt_new(const void* buffer, size_t size, size_t offset, size_t length,
+                          mdns_records_t** records, size_t capacity) {
+    size_t parsed = 0;
+    const char* strdata;
+    size_t separator, sublength;
+    size_t end = offset + length;
+
+    mdns_records_t** current_record = records;
+
+    if (size < end)
+        end = size;
+
+    while ((offset < end) && (parsed < capacity)) {
+        strdata = (const char*)buffer + offset;
+        sublength = *(const unsigned char*)strdata;
+
+        ++strdata;
+        offset += sublength + 1;
+
+        separator = 0;
+        for (size_t c = 0; c < sublength; ++c) {
+            //DNS-SD TXT record keys MUST be printable US-ASCII, [0x20, 0x7E]
+            if ((strdata[c] < 0x20) || (strdata[c] > 0x7E))
+                break;
+            if (strdata[c] == '=') {
+                separator = c;
+                break;
+            }
+        }
+
+        if (!separator)
+            continue;
+
+        *current_record = malloc(sizeof(mdns_records_t));
+        mdns_record_txt_t* txt_record = &(*current_record)->content.txt;
+
+        if (separator < sublength) {
+			txt_record->key.str = strdata;
+			txt_record->key.length = separator;
+			txt_record->value.str = strdata + separator + 1;
+			txt_record->value.length = sublength - (separator + 1);
+        }
+        else {
+			txt_record->key.str = strdata;
+			txt_record->key.length = sublength;
+        }
+
+        ++parsed;
+        current_record = &(*current_record)->next;
+    }
+
+    return parsed;
+}
+
 
 #ifdef _WIN32
 #undef strncasecmp
