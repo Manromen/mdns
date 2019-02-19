@@ -49,3 +49,12 @@ std::vector<in_addr> mdns::MDNSRequestPerformer::listIPv4Addresses()
     return addresses;
 }
 
+void mdns::MDNSRequestPerformer::performRequestForInterface(in_addr interfaceAddress)
+{
+    
+}
+
+void mdns::MDNSRequestPerformer::performRequestsForAllInterfaces()
+{
+
+}

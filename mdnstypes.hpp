@@ -5,35 +5,13 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "mdns.h"
 
 namespace mdns
 {
 
-enum EntryType
-{
-    ENTRY_ANSWER,
-    ENTRY_AUTHORITY,
-    ENTRY_ADDITIONAL
-};
-
-enum RecordType
-{
-    RECORD_PTR,
-    RECORD_TXT,
-    RECORD_SRV,
-    RECORD_A,
-    RECORD_AAAA,
-};
-
 struct Record
-{
-    EntryType entryType;
-    RecordType recordType;
-    std::string content;
-};
-
-struct PTRRecord : public Record
 {
     uint16_t type;
     uint16_t rclass;
@@ -41,16 +19,45 @@ struct PTRRecord : public Record
     size_t length;
 };
 
+struct PTRRecord : public Record
+{
+    std::string name;
+};
+
 struct TXTRecord : public Record
 {
+    std::string key;
+    std::string value;
+};
 
+struct SRVRecord : public Record
+{
+    std::string name;
+    unsigned priority;
+    unsigned weight;
+    unsigned port;
+};
+
+struct AddressRecord : public Record
+{
+    std::string address;
+};
+
+struct Entry {
+    std::vector<PTRRecord> ptrRecords;
+    std::vector<TXTRecord> txtRecords;
+    std::vector<SRVRecord> srvRecords;
+    std::vector<AddressRecord> aRecords;
+    std::vector<AddressRecord> aaaaRecords;
 };
 
 struct Reply
 {
     std::string srcAddress;
     int srcPort;
-
+    Entry answer;
+    Entry authority;
+    Entry additional;
 };
 
 } // namespace mdns
