@@ -88,15 +88,13 @@ callback(const struct sockaddr* from,
     const char* entrytype = (entry == MDNS_ENTRYTYPE_ANSWER) ? "answer" :
                             ((entry == MDNS_ENTRYTYPE_AUTHORITY) ? "authority" : "additional");
     if (type == MDNS_RECORDTYPE_PTR) {
-        mdns_string_t namestr = mdns_record_parse_ptr(data, size, offset, length,
-                                                      namebuffer, sizeof(namebuffer));
+        mdns_string_t namestr = mdns_record_parse_ptr(data, size, offset, length);
         printf("%.*s : %s PTR %.*s type %u rclass 0x%x ttl %u length %d\n",
                MDNS_STRING_FORMAT(fromaddrstr), entrytype,
                MDNS_STRING_FORMAT(namestr), type, rclass, ttl, (int)length);
     }
     else if (type == MDNS_RECORDTYPE_SRV) {
-        mdns_record_srv_t srv = mdns_record_parse_srv(data, size, offset, length,
-                                                      namebuffer, sizeof(namebuffer));
+        mdns_record_srv_t srv = mdns_record_parse_srv(data, size, offset, length);
         printf("%.*s : %s SRV %.*s priority %d weight %d port %d\n",
                MDNS_STRING_FORMAT(fromaddrstr), entrytype,
                MDNS_STRING_FORMAT(srv.name), srv.priority, srv.weight, srv.port);
@@ -171,8 +169,10 @@ dnssd_and_mdns(in_addr if_addr) {
     printf("Reading DNS-SD replies\n");
     buffer = malloc(capacity);
     for (int i = 0; i < 10; ++i) {
-        records = mdns_discovery_recv(sock, buffer, capacity, callback);
-        sleep(1);
+        mdns_reply_t reply;
+//        records = mdns_discovery_recv(sock, buffer, capacity, callback);
+        records = mdns_discovery_recv_new(sock, buffer, capacity, &reply);
+//        sleep(1);
     }
 
     printf("Sending mDNS query\n");
@@ -185,7 +185,9 @@ dnssd_and_mdns(in_addr if_addr) {
 
     printf("Reading mDNS replies\n");
     for (int i = 0; i < 10; ++i) {
+        mdns_reply_t reply;
         records = mdns_query_recv(sock, buffer, capacity, callback);
+//        records = mdns_query_recv_new(sock, buffer, capacity, &reply);
         sleep(1);
     }
 
