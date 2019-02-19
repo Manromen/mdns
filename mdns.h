@@ -130,6 +130,7 @@ struct mdns_entry_t {
 
 struct mdns_reply_t {
     mdns_string_t from_address;
+    uint16_t from_port;
     mdns_entry_t* entry;
 };
 
@@ -205,6 +206,9 @@ mdns_discovery_recv(int sock, void* buffer, size_t capacity,
 
 mdns_string_t
 mdns_parse_ip_address(struct sockaddr* saddr);
+
+uint16_t
+mdns_get_port(struct sockaddr* saddr);
 
 int
 mdns_query_send(int sock, mdns_record_type_t type, const char* name, size_t length,

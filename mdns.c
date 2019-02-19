@@ -560,6 +560,14 @@ mdns_parse_ip_address(struct sockaddr* saddr) {
 	return addr_string;
 }
 
+uint16_t
+mdns_get_port(struct sockaddr* saddr) {
+	if (saddr->sa_family == AF_INET6)
+		return ((struct sockaddr_in6*)saddr)->sin6_port;
+	else
+		return ((struct sockaddr_in*)saddr)->sin_port;
+}
+
 int
 mdns_discovery_send(int sock) {
 	struct sockaddr_in addr;
@@ -613,6 +621,7 @@ mdns_discovery_recv(int sock, void* buffer, size_t capacity, mdns_reply_t* reply
 						   saddr, &addrlen);
 	reply->entry = NULL;
 	reply->from_address = mdns_parse_ip_address(saddr);
+	reply->from_port = mdns_get_port(saddr);
 
 	if (ret <= 0)
 		return 0;
@@ -774,6 +783,7 @@ mdns_query_recv(int sock, void* buffer, size_t capacity,
 	                   saddr, &addrlen);
 	reply->entry = NULL;
 	reply->from_address = mdns_parse_ip_address(saddr);
+	reply->from_port = mdns_get_port(saddr);
 
 	if (ret <= 0)
 		return 0;
