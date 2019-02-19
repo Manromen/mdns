@@ -143,7 +143,6 @@ mdns_socket_setup_ipv6(int sock, struct in6_addr if_addr) {
 	struct sockaddr_in6 saddr;
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin6_family = AF_INET6;
-//	saddr.sin6_addr = in6addr_any;
 	saddr.sin6_addr = if_addr;
 #ifdef __APPLE__
 	saddr.sin6_len = sizeof(saddr);
@@ -321,6 +320,8 @@ mdns_record_free(mdns_records_t* record) {
 		case MDNS_RECORDTYPE_SRV:
 			mdns_record_srv_free(&record->content.srv);
 			break;
+		default:
+			break;
 	}
 }
 
@@ -335,25 +336,6 @@ mdns_records_free(mdns_records_t* records) {
 		free(current_record);
 		current_record = next;
 	}
-
-//	mdns_records_t* current_record = records;
-//	size_t size = 0;
-//
-//	while (current_record != NULL) {
-//		mdns_record_free(current_record);
-//		current_record = current_record->next;
-//		++size;
-//	}
-//
-//	mdns_records_t** records_stack = malloc(size * sizeof(mdns_records_t*));
-//	current_record = records;
-//	for (size_t i = 0; i < size && current_record != NULL; ++i, current_record = current_record->next) {
-//		records_stack[i] = current_record;
-//	}
-//	for (size_t i = size - 1; i >= 0; --i) {
-//		records_stack[i]->next = NULL;
-//		free(records_stack[i]);
-//	}
 }
 
 void
@@ -418,7 +400,6 @@ mdns_string_extract(const void* buffer, size_t size, size_t* offset) {
 	*offset = end;
 
 	mdns_string_alloc(&result, strbuffer, capacity - remain);
-//	result.length = capacity - remain; // TODO: remove
 	return result;
 }
 
@@ -468,33 +449,6 @@ mdns_string_make(void* data, size_t capacity, const char* name, size_t length) {
 		return 0;
 	*dest++ = 0;
 	return dest;
-}
-
-size_t
-mdns_records_parse(const struct sockaddr* from, const void* buffer, size_t size, size_t* offset,
-                   mdns_entry_type_t type, size_t records, mdns_record_callback_fn callback) {
-	size_t parsed = 0;
-	int do_callback = 1;
-	for (size_t i = 0; i < records; ++i) {
-		mdns_string_skip(buffer, size, offset);
-		const uint16_t* data = (const uint16_t*)((const char*)buffer + (*offset));
-
-		uint16_t rtype = ntohs(*data++);
-		uint16_t rclass = ntohs(*data++);
-		uint32_t ttl = ntohs(*(const uint32_t*)(const void*)data); data += 2;
-		uint16_t length = ntohs(*data++);
-
-		*offset += 10;
-
-		if (do_callback) {
-			++parsed;
-			if (callback(from, type, rtype, rclass, ttl, buffer, size, *offset, length))
-				do_callback = 0;
-		}
-
-		*offset += length;
-	}
-	return parsed;
 }
 
 void
@@ -547,7 +501,7 @@ mdns_record_parse(mdns_records_t*** records, uint16_t rtype, uint16_t rclass, ui
 			mdns_string_alloc(&(**records)->content.a, address, INET6_ADDRSTRLEN);
 			break;
 		case MDNS_RECORDTYPE_TXT:
-			mdns_record_parse_txt_new(records, data, size, offset, rclass, ttl, length);
+			mdns_record_parse_txt(records, data, size, offset, rclass, ttl, length);
 			break;
 		default:
 			(**records)->record_type = MDNS_RECORDTYPE_IGNORE;
@@ -556,8 +510,8 @@ mdns_record_parse(mdns_records_t*** records, uint16_t rtype, uint16_t rclass, ui
 }
 
 size_t
-mdns_records_parse_new(mdns_entry_t** entry, const void* buffer, size_t size, size_t* offset,
-					   mdns_entry_type_t type, size_t num_records) {
+mdns_records_parse(mdns_entry_t** entry, const void* buffer, size_t size, size_t* offset,
+				   mdns_entry_type_t type, size_t num_records) {
 	size_t parsed = 0;
 
 	init_entry(entry);
@@ -646,90 +600,7 @@ mdns_discovery_send(int sock) {
 }
 
 size_t
-mdns_discovery_recv(int sock, void* buffer, size_t capacity,
-                    mdns_record_callback_fn callback) {
-	struct sockaddr_in6 addr;
-	struct sockaddr* saddr = (struct sockaddr*)&addr;
-	memset(&addr, 0, sizeof(addr));
-	saddr->sa_family = AF_INET;
-#ifdef __APPLE__
-	saddr->sa_len = sizeof(addr);
-#endif
-	socklen_t addrlen = sizeof(addr);
-	ssize_t ret = recvfrom(sock, buffer, capacity, 0,
-	                   saddr, &addrlen);
-	if (ret <= 0)
-		return 0;
-
-	size_t data_size = (size_t)ret;
-	size_t records = 0;
-	uint16_t* data = (uint16_t*)buffer;
-
-	uint16_t transaction_id = ntohs(*data++);
-	uint16_t flags          = ntohs(*data++);
-	uint16_t questions      = ntohs(*data++);
-	uint16_t answer_rrs     = ntohs(*data++);
-	uint16_t authority_rrs  = ntohs(*data++);
-	uint16_t additional_rrs = ntohs(*data++);
-
-	if (transaction_id || (flags != 0x8400))
-		return 0; //Not a reply to our question
-
-	if (questions > 1)
-		return 0;
-
-	int i;
-	for (i = 0; i < questions; ++i) {
-		size_t ofs = (size_t)((char*)data - (char*)buffer);
-		size_t verify_ofs = 12;
-		//Verify it's our question, _services._dns-sd._udp.local.
-		if (!mdns_string_equal(buffer, data_size, &ofs,
-		                       mdns_services_query, sizeof(mdns_services_query), &verify_ofs))
-			return 0;
-		data = (uint16_t*)((char*)buffer + ofs);
-
-		uint16_t type = ntohs(*data++);
-		uint16_t rclass = ntohs(*data++);
-
-		//Make sure we get a reply based on our PTR question for class IN
-		if ((type != MDNS_RECORDTYPE_PTR) || ((rclass & 0x7FFF) != MDNS_CLASS_IN))
-			return 0;
-	}
-
-	int do_callback = 1;
-	for (i = 0; i < answer_rrs; ++i) {
-		size_t ofs = (size_t)((char*)data - (char*)buffer);
-		size_t verify_ofs = 12;
-		//Verify it's an answer to our question, _services._dns-sd._udp.local.
-		int is_answer = mdns_string_equal(buffer, data_size, &ofs,
-		                                  mdns_services_query, sizeof(mdns_services_query), &verify_ofs);
-		data = (uint16_t*)((char*)buffer + ofs);
-
-		uint16_t type = ntohs(*data++);
-		uint16_t rclass = ntohs(*data++);
-		uint32_t ttl = ntohl(*(uint32_t*)(void*)data); data += 2;
-		uint16_t length = ntohs(*data++);
-
-		if (is_answer && do_callback) {
-			++records;
-			if (callback(saddr, MDNS_ENTRYTYPE_ANSWER, type, rclass, ttl, buffer,
-			             data_size, (size_t)((char*)data - (char*)buffer), length))
-				do_callback = 0;
-		}
-		data = (void*)((char*)data + length);
-	}
-
-	size_t offset = (size_t)((char*)data - (char*)buffer);
-	records += mdns_records_parse(saddr, buffer, data_size, &offset,
-	                              MDNS_ENTRYTYPE_AUTHORITY, authority_rrs, callback);
-	records += mdns_records_parse(saddr, buffer, data_size, &offset,
-	                              MDNS_ENTRYTYPE_ADDITIONAL, additional_rrs, callback);
-
-	return records;
-}
-
-size_t
-mdns_discovery_recv_new(int sock, void* buffer, size_t capacity, mdns_reply_t* reply) {
+mdns_discovery_recv(int sock, void* buffer, size_t capacity, mdns_reply_t* reply) {
 	struct sockaddr_in6 addr;
 	struct sockaddr* saddr = (struct sockaddr*)&addr;
 	memset(&addr, 0, sizeof(addr));
@@ -815,12 +686,12 @@ mdns_discovery_recv_new(int sock, void* buffer, size_t capacity, mdns_reply_t* r
 	size_t offset = (size_t)((char*)data - (char*)buffer);
 
 	current_entry = &(*current_entry)->next;
-	records += mdns_records_parse_new(current_entry, buffer, data_size, &offset,
-								      MDNS_ENTRYTYPE_AUTHORITY, authority_rrs);
+	records += mdns_records_parse(current_entry, buffer, data_size, &offset,
+								  MDNS_ENTRYTYPE_AUTHORITY, authority_rrs);
 
 	current_entry = &(*current_entry)->next;
-	records += mdns_records_parse_new(current_entry, buffer, data_size, &offset,
-								      MDNS_ENTRYTYPE_ADDITIONAL, additional_rrs);
+	records += mdns_records_parse(current_entry, buffer, data_size, &offset,
+								  MDNS_ENTRYTYPE_ADDITIONAL, additional_rrs);
 
 	return records;
 }
@@ -890,61 +761,7 @@ mdns_query_send(int sock, mdns_record_type_t type, const char* name, size_t leng
 
 size_t
 mdns_query_recv(int sock, void* buffer, size_t capacity,
-                mdns_record_callback_fn callback) {
-	struct sockaddr_in6 addr;
-	struct sockaddr* saddr = (struct sockaddr*)&addr;
-	memset(&addr, 0, sizeof(addr));
-	saddr->sa_family = AF_INET;
-#ifdef __APPLE__
-	saddr->sa_len = sizeof(addr);
-#endif
-	socklen_t addrlen = sizeof(addr);
-	ssize_t ret = recvfrom(sock, buffer, capacity, 0,
-	                   saddr, &addrlen);
-	if (ret <= 0)
-		return 0;
-
-	size_t data_size = (size_t)ret;
-	uint16_t* data = (uint16_t*)buffer;
-
-	uint16_t transaction_id = ntohs(*data++);
-	++data;// uint16_t flags = ntohs(*data++);
-	uint16_t questions      = ntohs(*data++);
-	uint16_t answer_rrs     = ntohs(*data++);
-	uint16_t authority_rrs  = ntohs(*data++);
-	uint16_t additional_rrs = ntohs(*data++);
-
-	if (transaction_id != mdns_transaction_id)// || (flags != 0x8400))
-		return 0; //Not a reply to our last question
-
-	if (questions > 1)
-		return 0;
-
-	//Skip questions part
-	int i;
-	for (i = 0; i < questions; ++i) {
-		size_t ofs = (size_t)((char*)data - (char*)buffer);
-		if (!mdns_string_skip(buffer, data_size, &ofs))
-			return 0;
-		data = (void*)((char*)buffer + ofs);
-		++data;
-		++data;
-	}
-
-	size_t records = 0;
-	size_t offset = (size_t)((char*)data - (char*)buffer);
-	records += mdns_records_parse(saddr, buffer, data_size, &offset,
-	                              MDNS_ENTRYTYPE_ANSWER, answer_rrs, callback);
-	records += mdns_records_parse(saddr, buffer, data_size, &offset,
-	                              MDNS_ENTRYTYPE_AUTHORITY, authority_rrs, callback);
-	records += mdns_records_parse(saddr, buffer, data_size, &offset,
-	                              MDNS_ENTRYTYPE_ADDITIONAL, additional_rrs, callback);
-	return records;
-}
-
-size_t
-mdns_query_recv_new(int sock, void* buffer, size_t capacity,
-					mdns_reply_t* reply) {
+				mdns_reply_t* reply) {
 	struct sockaddr_in6 addr;
 	struct sockaddr* saddr = (struct sockaddr*)&addr;
 	memset(&addr, 0, sizeof(addr));
@@ -993,16 +810,16 @@ mdns_query_recv_new(int sock, void* buffer, size_t capacity,
 	size_t offset = (size_t)((char*)data - (char*)buffer);
 
 	mdns_entry_t** current_entry = &reply->entry;
-	records += mdns_records_parse_new(current_entry, buffer, data_size, &offset,
-	                                  MDNS_ENTRYTYPE_ANSWER, answer_rrs);
+	records += mdns_records_parse(current_entry, buffer, data_size, &offset,
+								  MDNS_ENTRYTYPE_ANSWER, answer_rrs);
 
 	current_entry = &(*current_entry)->next;
-	records += mdns_records_parse_new(current_entry, buffer, data_size, &offset,
-	                                  MDNS_ENTRYTYPE_AUTHORITY, authority_rrs);
+	records += mdns_records_parse(current_entry, buffer, data_size, &offset,
+								  MDNS_ENTRYTYPE_AUTHORITY, authority_rrs);
 
 	current_entry = &(*current_entry)->next;
-	records += mdns_records_parse_new(current_entry, buffer, data_size, &offset,
-	                                  MDNS_ENTRYTYPE_ADDITIONAL, additional_rrs);
+	records += mdns_records_parse(current_entry, buffer, data_size, &offset,
+								  MDNS_ENTRYTYPE_ADDITIONAL, additional_rrs);
 	return records;
 }
 
@@ -1037,58 +854,8 @@ mdns_record_parse_srv(const void* buffer, size_t size, size_t offset, size_t len
 }
 
 size_t
-mdns_record_parse_txt(const void* buffer, size_t size, size_t offset, size_t length,
-                      mdns_record_txt_t* records, size_t capacity) {
-	size_t parsed = 0;
-	const char* strdata;
-	size_t separator, sublength;
-	size_t end = offset + length;
-
-	if (size < end)
-		end = size;
-
-	while ((offset < end) && (parsed < capacity)) {
-		strdata = (const char*)buffer + offset;
-		sublength = *(const unsigned char*)strdata;
-
-		++strdata;
-		offset += sublength + 1;
-
-		separator = 0;
-		for (size_t c = 0; c < sublength; ++c) {
-			//DNS-SD TXT record keys MUST be printable US-ASCII, [0x20, 0x7E]
-			if ((strdata[c] < 0x20) || (strdata[c] > 0x7E))
-				break;
-			if (strdata[c] == '=') {
-				separator = c;
-				break;
-			}
-		}
-
-		if (!separator)
-			continue;
-
-		if (separator < sublength) {
-			size_t key_length = separator;
-			mdns_string_alloc(&records[parsed].key, strdata, key_length);
-
-			size_t value_length = sublength - (separator + 1);
-			mdns_string_alloc(&records[parsed].value, strdata, value_length);
-		}
-		else {
-			size_t key_length = sublength;
-			mdns_string_alloc(&records[parsed].key, strdata, key_length);
-		}
-
-		++parsed;
-	}
-
-	return parsed;
-}
-
-size_t
-mdns_record_parse_txt_new(mdns_records_t*** records, const void* buffer, size_t size, size_t offset,
-						  uint16_t rclass, uint32_t ttl, size_t length) {
+mdns_record_parse_txt(mdns_records_t*** records, const void* buffer, size_t size, size_t offset,
+					  uint16_t rclass, uint32_t ttl, size_t length) {
     size_t parsed = 0;
     const char* strdata;
     size_t separator, sublength;
