@@ -24,9 +24,11 @@ extern "C" {
 #  define sleep(x) Sleep(x * 1000)
 #else
 #  include <netdb.h>
-#include "MDNSRequestPerformer.hpp"
 
 #endif
+
+#include "MDNSRequestPerformer.hpp"
+
 
 int
 dnssd_and_mdns(in_addr if_addr) {
@@ -39,7 +41,6 @@ dnssd_and_mdns(in_addr if_addr) {
 	WSADATA wsaData;
 	WSAStartup(versionWanted, &wsaData);
 #endif
-
 
     int sock = mdns_socket_open_ipv4(if_addr);
     if (sock < 0) {
@@ -93,13 +94,27 @@ dnssd_and_mdns(in_addr if_addr) {
 int
 main() {
     std::shared_ptr<mdns::MDNSRequestPerformer> performer = mdns::MDNSRequestPerformer::create();
-    std::vector<in_addr> addresses = performer->listIPv4Addresses();
+    std::vector<std::string> addresses = performer->listIPv4InterfaceAddresses();
+
+//    std::string address = "192.168.42.131";
 
     for (auto& address : addresses)
     {
-        std::cout << "Checking interface " << inet_ntoa(address) << std::endl;
-        dnssd_and_mdns(address);
+        std::cout << "Checking interface " << address << std::endl;
+        mdns::Status status = performer->mDNSDiscoverySend(address);
+        performer->mDNSDiscoveryReceive(address);
+        status = performer->mDNSQuerySend(address);
+
+        for (int i = 0; i < 10; ++i) {
+            std::cout << "Reply on interface " << address << std::endl;
+            mdns::Reply reply = performer->mDNSQueryReceive(address);
+            std::cout << reply.srcAddress << ":" << reply.srcPort << ": " << reply.answer.ptrRecords.size()
+                      << " PTR records" << std::endl;
+            sleep(1);
+        }
     }
+
+    performer->closeAllSockets();
 
     return 0;
 }

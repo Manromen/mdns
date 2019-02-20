@@ -6,8 +6,11 @@
 
 
 #include <ifaddrs.h>
-#include <memory>
 #include <netinet/in.h>
+#include <memory>
+#include <unordered_map>
+
+#include "mdnstypes.hpp"
 
 namespace mdns
 {
@@ -28,14 +31,27 @@ public:
     explicit MDNSRequestPerformer(ifaddrs* addrs);
     virtual ~MDNSRequestPerformer();
 
-    std::vector<in_addr> listIPv4Addresses();
-    void performRequestForInterface(in_addr interfaceAddress);
-    void performRequestsForAllInterfaces();
+    std::vector<std::string> listIPv4InterfaceAddresses();
+
+    void closeSocket(std::string& interfaceAddress);
+    void closeAllSockets();
+
+    Status mDNSDiscoverySend(std::string& interfaceAddress);
+    Reply mDNSDiscoveryReceive(std::string& interfaceAddress);
+
+    Status mDNSQuerySend(std::string& interfaceAddress);
+    Reply mDNSQueryReceive(std::string& interfaceAddress);
 
 private:
     ifaddrs* addrs;
+    std::unordered_map<std::string, in_addr> ipv4addresses;
+    std::unordered_map<std::string, int> sockets;
+    void* buffer;
+    size_t capacity = 2048;
+
+    Status openSocket(std::string& interfaceAddress);
+
 };
 
 } // namespace mdns
-
 
