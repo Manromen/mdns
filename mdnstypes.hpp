@@ -40,8 +40,7 @@ struct PTRRecord : public Record
 
 struct TXTRecord : public Record
 {
-    std::string key;
-    std::string value;
+    std::vector<std::pair<std::string, std::string>> keyValuePairs;
 
     static TXTRecord from_mdns_records_t(const mdns_records_t& record);
 };

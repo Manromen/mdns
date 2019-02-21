@@ -25,9 +25,11 @@ mdns::TXTRecord mdns::TXTRecord::from_mdns_records_t(const mdns_records_t& recor
     result.rclass = record.rclass;
     result.ttl = record.ttl;
     result.length = record.length;
-    result.key = record.content.txt.key.str;
-    if (record.content.txt.value.str != nullptr)
-        result.value = record.content.txt.value.str;
+    for (size_t i = 0; i < record.content.txts.size; ++i) {
+        std::pair<std::string, std::string> keyValuePair {record.content.txts.txts[i].key.str,
+                                                          record.content.txts.txts[i].value.str};
+        result.keyValuePairs.emplace_back(keyValuePair);
+    }
 
     return result;
 }

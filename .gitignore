@@ -168,7 +168,7 @@ develop-eggs
 .installed.cfg
 
 # Installer logs
-pip-log.txt
+pip-log.txts
 
 # Unit test / coverage reports
 .coverage

@@ -75,6 +75,7 @@ typedef struct mdns_string_t       mdns_string_t;
 typedef struct mdns_string_pair_t  mdns_string_pair_t;
 typedef struct mdns_record_srv_t   mdns_record_srv_t;
 typedef struct mdns_record_txt_t   mdns_record_txt_t;
+typedef struct mdns_record_txts_t  mdns_record_txts_t;
 typedef union mdns_recordcontent_t mdns_recordcontent_t;
 typedef struct mdns_records_t      mdns_records_t;
 typedef struct mdns_entry_t        mdns_entry_t;
@@ -103,11 +104,16 @@ struct mdns_record_txt_t {
 	mdns_string_t value;
 };
 
+struct mdns_record_txts_t {
+	size_t size;
+    mdns_record_txt_t* txts;
+};
+
 union mdns_recordcontent_t {
     mdns_string_t a;
     mdns_string_t aaaa;
     mdns_string_t ptr;
-    mdns_record_txt_t txt;
+    mdns_record_txts_t txts;
     mdns_record_srv_t srv;
 };
 
@@ -177,6 +183,9 @@ void
 mdns_record_txt_free(mdns_record_txt_t* record_txt);
 
 void
+mdns_record_txts_free(mdns_record_txts_t* record_txts);
+
+void
 mdns_record_free(mdns_records_t* record);
 
 void
@@ -225,5 +234,5 @@ mdns_record_srv_t
 mdns_record_parse_srv(const void* buffer, size_t size, size_t offset, size_t length);
 
 size_t
-mdns_record_parse_txt(mdns_records_t*** records, const void* buffer, size_t size, size_t offset,
-                      uint16_t rclass, uint32_t ttl, size_t length);
+mdns_record_parse_txt(mdns_record_txts_t* result, const void* buffer, size_t size, size_t original_offset,
+                      size_t length);

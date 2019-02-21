@@ -113,7 +113,7 @@ Status mdns::MDNSRequestPerformer::mDNSQuerySend(std::string& interfaceAddress)
 
 mdns::Reply mdns::MDNSRequestPerformer::mDNSQueryReceive(std::string& interfaceAddress)
 {
-    mdns_reply_t reply;
+    mdns_reply_t reply{};
     mdns_query_recv(sockets[interfaceAddress], buffer, capacity, &reply);
 
     return Reply::from_mdns_reply_t(reply);
