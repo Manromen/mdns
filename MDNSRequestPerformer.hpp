@@ -31,7 +31,11 @@ public:
     explicit MDNSRequestPerformer(ifaddrs* addrs);
     virtual ~MDNSRequestPerformer();
 
-    std::vector<std::string> listIPv4InterfaceAddresses();
+    /**
+     * @return A vector of pairs containing the interface name as the first element
+     *         and the interface address as the second element
+     */
+    std::vector<std::pair<std::string, std::string>> listIPv4Interfaces();
 
     void closeSocket(std::string& interfaceAddress);
     void closeAllSockets();
@@ -44,6 +48,7 @@ public:
 
 private:
     ifaddrs* addrs;
+    std::vector<std::pair<std::string, std::string>> ipv4interfaces;
     std::unordered_map<std::string, in_addr> ipv4addresses;
     std::unordered_map<std::string, int> sockets;
     void* buffer;

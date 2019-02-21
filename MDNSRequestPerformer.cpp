@@ -48,6 +48,9 @@ mdns::MDNSRequestPerformer::MDNSRequestPerformer(ifaddrs* const addrs)
             inet_ntop(AF_INET, &sa->sin_addr, addressBuffer, INET_ADDRSTRLEN);
             std::string address = addressBuffer;
             ipv4addresses[address] = sa->sin_addr;
+
+            std::pair<std::string, std::string> interfaceAddressPair {next->ifa_name, address};
+            ipv4interfaces.emplace_back(interfaceAddressPair);
         }
         next = next->ifa_next;
     }
@@ -73,14 +76,9 @@ void mdns::MDNSRequestPerformer::closeAllSockets()
         mdns_socket_close(pair.second);
 }
 
-std::vector<std::string> mdns::MDNSRequestPerformer::listIPv4InterfaceAddresses()
+std::vector<std::pair<std::string, std::string>> mdns::MDNSRequestPerformer::listIPv4Interfaces()
 {
-    std::vector<std::string> addresses;
-
-    for (auto& pair : ipv4addresses)
-        addresses.emplace_back(pair.first);
-
-    return addresses;
+    return ipv4interfaces;
 }
 
 Status mdns::MDNSRequestPerformer::mDNSDiscoverySend(std::string& interfaceAddress)

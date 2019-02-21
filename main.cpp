@@ -94,20 +94,20 @@ dnssd_and_mdns(in_addr if_addr) {
 int
 main() {
     std::shared_ptr<mdns::MDNSRequestPerformer> performer = mdns::MDNSRequestPerformer::create();
-    std::vector<std::string> addresses = performer->listIPv4InterfaceAddresses();
+    std::vector<std::pair<std::string, std::string>> addresses = performer->listIPv4Interfaces();
 
 //    std::string address = "192.168.42.131";
 
     for (auto& address : addresses)
     {
-        std::cout << "Checking interface " << address << std::endl;
-        mdns::Status status = performer->mDNSDiscoverySend(address);
-        performer->mDNSDiscoveryReceive(address);
-        status = performer->mDNSQuerySend(address);
+        std::cout << "Checking interface " << address.first << ", " << address.second << std::endl;
+        mdns::Status status = performer->mDNSDiscoverySend(address.second);
+        performer->mDNSDiscoveryReceive(address.second);
+        status = performer->mDNSQuerySend(address.second);
 
         for (int i = 0; i < 10; ++i) {
-            std::cout << "Reply on interface " << address << std::endl;
-            mdns::Reply reply = performer->mDNSQueryReceive(address);
+            std::cout << "Reply on interface " << address.second << std::endl;
+            mdns::Reply reply = performer->mDNSQueryReceive(address.second);
             std::cout << reply.srcAddress << ":" << reply.srcPort << ": " << reply.answer.ptrRecords.size()
                       << " PTR records" << std::endl;
             sleep(1);
