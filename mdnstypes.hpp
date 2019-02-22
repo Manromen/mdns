@@ -6,6 +6,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 extern "C" {
 #include "mdns.h"
@@ -40,7 +41,7 @@ struct PTRRecord : public Record
 
 struct TXTRecord : public Record
 {
-    std::vector<std::pair<std::string, std::string>> keyValuePairs;
+    std::unordered_map<std::string, std::string> records;
 
     static TXTRecord from_mdns_records_t(const mdns_records_t& record);
 };
